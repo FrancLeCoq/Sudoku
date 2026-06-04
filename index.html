@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>SUDOKU — Le Coq Francis</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Fredoka+One&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+:root{
+  --bg1:#0d0520; --bg2:#1a0840;
+  --gold:#FFD700; --purple:#c084fc; --purple-d:#6d28d9;
+  --green:#16a34a; --green-l:#a3e635;
+  --orange:#d97706; --orange-l:#fcd34d;
+  --cyan:#0ea5e9;
+  --txt:#fff; --muted:#c9aaee;
+  --cell-bg:rgba(255,255,255,0.05);
+  --cell-fixed:rgba(168,85,247,0.16);
+  --cell-sel:rgba(14,165,233,0.45);
+  --cell-peer:rgba(168,85,247,0.10);
+  --cell-same:rgba(163,230,53,0.18);
+  --cell-err:rgba(239,68,68,0.45);
+  --grid-line:rgba(180,100,255,0.35);
+  --grid-thick:rgba(255,215,0,0.6);
+}
+html,body{height:100%}
+body{
+  background:linear-gradient(160deg,var(--bg1),var(--bg2));
+  background-attachment:fixed;
+  font-family:'Fredoka One',cursive;
+  color:var(--txt);
+  min-height:100vh;
+  display:flex; flex-direction:column; align-items:center;
+  padding:14px 14px calc(14px + env(safe-area-inset-bottom));
+  overflow-x:hidden;
+}
+
+/* Floating decorative glow */
+body::before{
+  content:''; position:fixed; top:-120px; left:50%; transform:translateX(-50%);
+  width:380px; height:380px; border-radius:50%;
+  background:radial-gradient(circle,rgba(120,40,200,0.35),transparent 70%);
+  pointer-events:none; z-index:0;
+}
+
+.app{width:100%; max-width:420px; position:relative; z-index:1; display:flex; flex-direction:column; align-items:center}
+
+/* ===== HEADER (mascotte + titre, présent partout) ===== */
+.brand{display:flex; flex-direction:column; align-items:center; margin-bottom:14px; margin-top:4px}
+.brand img{width:96px; height:96px; object-fit:contain; filter:drop-shadow(0 6px 18px rgba(0,0,0,0.6)); animation:bob 3.2s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-7px) rotate(1deg)}}
+.brand h1{
+  font-family:'Bangers',cursive; font-size:42px; letter-spacing:5px;
+  color:var(--gold); text-shadow:0 0 22px rgba(255,215,0,0.55),0 3px 0 rgba(0,0,0,0.35);
+  margin-top:2px; line-height:1;
+}
+.brand .tagline{font-size:11px; color:var(--muted); letter-spacing:1px; margin-top:3px}
+
+/* ===== CARD ===== */
+.card{
+  width:100%;
+  background:linear-gradient(145deg,rgba(13,5,32,0.95),rgba(30,10,65,0.95));
+  border:2px solid rgba(180,100,255,0.30);
+  border-radius:24px; padding:22px 18px;
+  box-shadow:0 0 50px rgba(120,40,200,0.35);
+}
+
+/* ===== Buttons (menu) ===== */
+.menu-btn{
+  width:100%; padding:18px 18px; border:none; border-radius:16px;
+  font-family:'Bangers',cursive; font-size:22px; letter-spacing:2px;
+  color:#fff; cursor:pointer; margin-bottom:14px;
+  display:flex; align-items:center; justify-content:center; gap:12px;
+  touch-action:manipulation; transition:transform .12s,box-shadow .12s,opacity .12s;
+  position:relative; overflow:hidden;
+}
+.menu-btn:active{transform:scale(0.97)}
+.menu-btn .ico{font-size:24px; line-height:1}
+.menu-btn .lock{position:absolute; right:16px; font-size:20px}
+
+.btn-comp-green{background:linear-gradient(135deg,#16a34a,#15803d); box-shadow:0 5px 22px rgba(22,163,74,0.45)}
+.btn-comp-orange{background:linear-gradient(135deg,#d97706,#b45309); box-shadow:0 5px 22px rgba(217,119,6,0.40)}
+.btn-unique{background:linear-gradient(135deg,#16a34a,#15803d); box-shadow:0 5px 22px rgba(22,163,74,0.45)}
+.btn-wallet{background:linear-gradient(135deg,#0ea5e9,#0284c7); box-shadow:0 5px 22px rgba(14,165,233,0.45)}
+.btn-purple{background:linear-gradient(135deg,#7c3aed,#5b21b6); box-shadow:0 5px 22px rgba(124,58,237,0.45)}
+.btn-neutral{background:rgba(109,40,217,0.25); border:1px solid rgba(168,85,247,0.4); box-shadow:none}
+
+/* Status / wallet bar */
+.status-bar{border-radius:14px; padding:12px 14px; margin-bottom:16px; font-size:12px; line-height:1.6; font-family:'Fredoka One',cursive}
+.status-bar.franc{background:rgba(22,163,74,0.15); border:1.5px solid rgba(163,230,53,0.5); color:#86efac}
+.status-bar.no-franc{background:rgba(217,119,6,0.10); border:1.5px solid rgba(217,119,6,0.4); color:var(--orange-l)}
+.status-bar b{color:var(--gold)}
+
+/* Language flags */
+.lang-row{display:flex; justify-content:center; gap:14px; margin-top:6px}
+.flag-btn{
+  width:66px; height:46px; border-radius:12px; cursor:pointer;
+  border:2px solid rgba(168,85,247,0.4); background:rgba(255,255,255,0.05);
+  display:flex; align-items:center; justify-content:center; font-size:30px;
+  touch-action:manipulation; transition:transform .12s,border-color .12s;
+  overflow:hidden;
+}
+.flag-btn:active{transform:scale(0.92)}
+.flag-btn.active{border-color:var(--gold); box-shadow:0 0 18px rgba(255,215,0,0.45)}
+.flag-btn svg{width:48px; height:32px; border-radius:4px; display:block}
+
+/* Back button */
+.back-btn{
+  display:flex; align-items:center; gap:6px; width:100%;
+  background:rgba(109,40,217,0.2); border:1px solid rgba(168,85,247,0.4);
+  color:#a78bfa; font-size:14px; font-family:'Fredoka One',cursive;
+  cursor:pointer; margin-bottom:16px; padding:9px 14px; border-radius:10px;
+  touch-action:manipulation; transition:opacity .12s,transform .12s;
+}
+.back-btn:active{opacity:.7; transform:scale(0.98)}
+.back-btn::before{content:'←'; font-size:18px; font-weight:bold}
+
+/* Section title */
+.sec-title{font-family:'Bangers',cursive; font-size:24px; letter-spacing:2px; color:var(--purple); text-align:center; margin-bottom:14px}
+.sec-sub{font-size:11px; color:var(--muted); text-align:center; margin-top:-8px; margin-bottom:16px; line-height:1.5}
+
+/* Scores */
+.scores-box{margin-top:6px; background:rgba(255,255,255,0.04); border:1px solid rgba(168,85,247,0.25); border-radius:14px; padding:14px}
+.scores-box .sh{font-family:'Bangers',cursive; letter-spacing:1px; color:var(--gold); font-size:16px; margin-bottom:10px; text-align:center}
+.score-row{display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-radius:10px; margin-bottom:6px; font-size:13px; background:rgba(255,255,255,0.03)}
+.score-row .rank{font-family:'Bangers',cursive; font-size:18px; width:26px}
+.score-row.r1 .rank{color:#FFD700}.score-row.r2 .rank{color:#d1d5db}.score-row.r3 .rank{color:#cd7f32}
+.score-row .val{font-family:'Bangers',cursive; letter-spacing:1px; color:var(--green-l); font-size:16px}
+.score-row .meta{font-size:10px; color:var(--muted)}
+.no-scores{text-align:center; color:var(--muted); font-size:12px; padding:8px}
+
+/* ===== GAME SCREEN ===== */
+.game-top{display:flex; align-items:center; justify-content:space-between; width:100%; margin-bottom:10px; gap:8px}
+.game-top .lvl-badge{font-family:'Bangers',cursive; letter-spacing:1px; font-size:16px; color:var(--gold); flex:1}
+.hud{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; width:100%; margin-bottom:12px}
+.hud .chip{
+  background:rgba(255,255,255,0.06); border:1px solid rgba(168,85,247,0.3);
+  border-radius:12px; padding:6px 12px; font-size:13px; display:flex; align-items:center; gap:6px;
+}
+.hud .chip .lab{font-size:9px; color:var(--muted); letter-spacing:.5px}
+.hud .chip .num{font-family:'Bangers',cursive; font-size:17px; letter-spacing:1px}
+.chip.lives .num{color:#fca5a5}
+.chip.score .num{color:var(--green-l)}
+.chip.time .num{color:var(--cyan)}
+.chip.errors .num{color:var(--orange-l)}
+
+/* pilote mini watch */
+.mini-pilote{position:fixed; bottom:12px; right:12px; width:54px; height:54px; z-index:30; pointer-events:none; opacity:.9; filter:drop-shadow(0 3px 8px rgba(0,0,0,0.6)); animation:bob 3.6s ease-in-out infinite}
+
+/* Sudoku grid */
+.grid-wrap{width:100%; display:flex; justify-content:center}
+.sudoku{
+  display:grid; grid-template-columns:repeat(9,1fr);
+  width:min(94vw,400px); aspect-ratio:1/1;
+  background:var(--grid-thick);
+  border:3px solid var(--grid-thick); border-radius:12px; overflow:hidden;
+  box-shadow:0 0 30px rgba(120,40,200,0.4);
+  gap:1px;
+}
+.cell{
+  background:var(--cell-bg); display:flex; align-items:center; justify-content:center;
+  font-family:'Fredoka One',cursive; font-size:clamp(16px,5.2vw,24px);
+  cursor:pointer; color:var(--cyan); position:relative; transition:background .1s;
+}
+.cell.fixed{color:#fff; background:var(--cell-fixed); cursor:default}
+.cell.sel{background:var(--cell-sel)!important}
+.cell.peer{background:var(--cell-peer)}
+.cell.same{background:var(--cell-same)}
+.cell.err{background:var(--cell-err)!important; color:#fff; animation:shake .3s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+/* thick block borders */
+.cell:nth-child(3n):not(:nth-child(9n)){box-shadow:1px 0 0 var(--grid-thick)}
+.r3, .r6{box-shadow:0 1px 0 var(--grid-thick)}
+.notes{position:absolute; inset:2px; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); font-family:'Fredoka One'; font-size:8px; color:var(--muted); pointer-events:none}
+.notes span{display:flex; align-items:center; justify-content:center}
+
+/* number pad */
+.pad{display:grid; grid-template-columns:repeat(5,1fr); gap:8px; width:min(94vw,400px); margin:14px auto 0}
+.pad-btn{
+  background:linear-gradient(135deg,rgba(124,58,237,0.35),rgba(91,33,182,0.35));
+  border:1.5px solid rgba(168,85,247,0.4); border-radius:12px;
+  padding:14px 0; font-family:'Bangers',cursive; font-size:22px; letter-spacing:1px;
+  color:#fff; cursor:pointer; touch-action:manipulation; transition:transform .1s,background .1s;
+  position:relative;
+}
+.pad-btn:active{transform:scale(0.93); background:linear-gradient(135deg,rgba(124,58,237,0.6),rgba(91,33,182,0.6))}
+.pad-btn .cnt{position:absolute; top:2px; right:5px; font-family:'Fredoka One'; font-size:8px; color:var(--muted)}
+.pad-btn.done{opacity:.35; pointer-events:none}
+.pad-tools{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; width:min(94vw,400px); margin:8px auto 0}
+.tool-btn{
+  background:rgba(255,255,255,0.06); border:1.5px solid rgba(168,85,247,0.35);
+  border-radius:12px; padding:11px 0; font-family:'Fredoka One'; font-size:12px;
+  color:#fff; cursor:pointer; touch-action:manipulation; transition:transform .1s;
+  display:flex; align-items:center; justify-content:center; gap:5px;
+}
+.tool-btn:active{transform:scale(0.94)}
+.tool-btn.active{background:rgba(14,165,233,0.3); border-color:var(--cyan); color:#7dd3fc}
+
+/* ===== OVERLAYS ===== */
+.overlay{
+  position:fixed; inset:0; z-index:50; display:none;
+  align-items:center; justify-content:center; padding:24px;
+  background:rgba(5,2,15,0.82); backdrop-filter:blur(6px);
+}
+.overlay.show{display:flex; animation:fadein .25s}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.modal{
+  width:100%; max-width:340px; text-align:center;
+  background:linear-gradient(145deg,rgba(13,5,32,0.98),rgba(30,10,65,0.98));
+  border:2px solid rgba(180,100,255,0.4); border-radius:24px; padding:26px 22px;
+  box-shadow:0 0 60px rgba(120,40,200,0.5); animation:pop .3s cubic-bezier(.2,1.4,.5,1)
+}
+@keyframes pop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+.modal img{width:120px; height:120px; object-fit:contain; margin-bottom:10px; filter:drop-shadow(0 6px 16px rgba(0,0,0,0.6))}
+.modal h2{font-family:'Bangers',cursive; font-size:30px; letter-spacing:2px; margin-bottom:8px}
+.modal h2.win{color:var(--green-l); text-shadow:0 0 20px rgba(163,230,53,0.5)}
+.modal h2.lose{color:#fca5a5; text-shadow:0 0 20px rgba(239,68,68,0.4)}
+.modal h2.locked{color:var(--orange-l)}
+.modal p{font-size:13px; color:var(--muted); line-height:1.7; margin-bottom:18px}
+.modal p b{color:var(--gold)}
+.modal .modal-score{font-family:'Bangers',cursive; font-size:26px; color:var(--green-l); margin:6px 0 14px; letter-spacing:1px}
+
+/* life-loss flash overlay */
+.life-flash{
+  position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; pointer-events:none;
+}
+.life-flash.show{display:flex}
+.life-flash img{width:160px; height:160px; object-fit:contain; animation:lifepop .9s ease-out forwards; filter:drop-shadow(0 6px 16px rgba(0,0,0,0.6))}
+@keyframes lifepop{0%{transform:scale(.3) translateY(40px);opacity:0}25%{transform:scale(1.1) translateY(0);opacity:1}70%{transform:scale(1) translateY(0);opacity:1}100%{transform:scale(.9) translateY(-30px);opacity:0}}
+.life-flash .lf-txt{position:absolute; bottom:30%; font-family:'Bangers',cursive; font-size:28px; color:#fca5a5; letter-spacing:2px; text-shadow:0 0 20px rgba(239,68,68,0.6); animation:lifepop .9s ease-out forwards}
+
+/* toast */
+.toast{
+  position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:rgba(217,119,6,0.95); color:#fff; padding:12px 18px; border-radius:14px;
+  font-size:13px; z-index:70; opacity:0; transition:opacity .25s,transform .25s; max-width:90%;
+  text-align:center; box-shadow:0 6px 24px rgba(0,0,0,0.5); pointer-events:none;
+}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+.hidden{display:none!important}
+.spin{display:inline-block; animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* level list buttons */
+.lvl-btn{
+  width:100%; padding:16px; border:none; border-radius:14px; margin-bottom:11px;
+  font-family:'Bangers',cursive; font-size:19px; letter-spacing:2px; color:#fff;
+  cursor:pointer; display:flex; align-items:center; justify-content:space-between;
+  touch-action:manipulation; transition:transform .1s; position:relative;
+}
+.lvl-btn:active{transform:scale(0.97)}
+.lvl-btn .ll{display:flex; align-items:center; gap:10px}
+.lvl-btn .stars{font-size:13px; letter-spacing:1px}
+.lvl-btn.unlocked{background:linear-gradient(135deg,#16a34a,#15803d); box-shadow:0 4px 18px rgba(22,163,74,0.4)}
+.lvl-btn.lockedb{background:linear-gradient(135deg,#d97706,#b45309); box-shadow:0 4px 18px rgba(217,119,6,0.35)}
+.lvl-btn .lk{font-size:18px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- BRAND HEADER (always visible) -->
+  <div class="brand">
+    <img src="assets/coq_pilote.png" alt="Francis" id="brandImg">
+    <h1>SUDOKU</h1>
+    <div class="tagline" id="tagline">LE COQ FRANCIS</div>
+  </div>
+
+  <!-- ============ MENU ============ -->
+  <div class="card" id="screenMenu">
+    <div class="status-bar" id="walletStatus" style="display:none"></div>
+
+    <button class="menu-btn btn-comp-orange" id="btnComp" onclick="openCompetition()">
+      <span class="ico">🏆</span><span id="lblComp">COMPÉTITION</span>
+      <span class="lock" id="compLock">🔒</span>
+    </button>
+
+    <button class="menu-btn btn-unique" onclick="show('screenUnique')">
+      <span class="ico">🎯</span><span id="lblUnique">GRILLE UNIQUE</span>
+    </button>
+
+    <button class="menu-btn btn-wallet" onclick="goConnectWallet()">
+      <span class="ico">👛</span><span id="lblWallet">CONNECT WALLET</span>
+    </button>
+
+    <div class="lang-row">
+      <button class="flag-btn" id="flagFR" onclick="setLang('fr')" aria-label="Français">
+        <svg viewBox="0 0 3 2"><rect width="1" height="2" x="0" fill="#0055A4"/><rect width="1" height="2" x="1" fill="#fff"/><rect width="1" height="2" x="2" fill="#EF4135"/></svg>
+      </button>
+      <button class="flag-btn" id="flagEN" onclick="setLang('en')" aria-label="English">
+        <svg viewBox="0 0 60 30"><clipPath id="ukc"><rect width="60" height="30"/></clipPath><g clip-path="url(#ukc)"><rect width="60" height="30" fill="#012169"/><path d="M0,0 60,30M60,0 0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 60,30M60,0 0,30" stroke="#C8102E" stroke-width="4"/><path d="M30,0 30,30M0,15 60,15" stroke="#fff" stroke-width="10"/><path d="M30,0 30,30M0,15 60,15" stroke="#C8102E" stroke-width="6"/></g></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ COMPETITION SUBMENU ============ -->
+  <div class="card hidden" id="screenComp">
+    <button class="back-btn" id="backComp1" onclick="show('screenMenu')">Retour</button>
+    <div class="sec-title">🏆 <span id="compTitle">COMPÉTITION</span></div>
+    <div class="sec-sub" id="compSub">Gravis les échelons et gagne des $FRANC virtuels !</div>
+
+    <button class="menu-btn btn-comp-green" id="btnResume" onclick="resumeCompetition()" style="display:none">
+      <span class="ico">▶️</span><span id="lblResume">REPRENDRE</span>
+    </button>
+    <button class="menu-btn btn-purple" onclick="newCompetition()">
+      <span class="ico">🆕</span><span id="lblNew">NOUVELLE PARTIE</span>
+    </button>
+
+    <div class="scores-box">
+      <div class="sh" id="lblBest">🏅 TOP 3 SCORES</div>
+      <div id="scoresList"></div>
+    </div>
+  </div>
+
+  <!-- ============ UNIQUE GRID LEVELS ============ -->
+  <div class="card hidden" id="screenUnique">
+    <button class="back-btn" id="backUnique" onclick="show('screenMenu')">Retour</button>
+    <div class="sec-title">🎯 <span id="uniqueTitle">GRILLE UNIQUE</span></div>
+    <div class="sec-sub" id="uniqueSub">Choisis ta difficulté</div>
+    <div id="levelList"></div>
+  </div>
+
+  <!-- ============ GAME ============ -->
+  <div class="card hidden" id="screenGame">
+    <div class="game-top">
+      <button class="back-btn" id="backGame" style="margin-bottom:0;width:auto;padding:8px 12px" onclick="quitGame()">Menu</button>
+      <span class="lvl-badge" id="gameLvl"></span>
+    </div>
+    <div class="hud" id="hud"></div>
+    <div class="grid-wrap"><div class="sudoku" id="board"></div></div>
+    <div class="pad" id="pad"></div>
+    <div class="pad-tools">
+      <button class="tool-btn" id="toolNotes" onclick="toggleNotes()">✏️ <span id="lblNotes">Notes</span></button>
+      <button class="tool-btn" onclick="eraseCell()">🧽 <span id="lblErase">Gomme</span></button>
+      <button class="tool-btn" onclick="hintCell()">💡 <span id="lblHint">Indice</span></button>
+    </div>
+  </div>
+
+</div>
+
+<!-- mini pilote during game -->
+<img src="assets/coq_pilote.png" class="mini-pilote hidden" id="miniPilote" alt="">
+
+<!-- Overlays -->
+<div class="overlay" id="modalOverlay">
+  <div class="modal">
+    <img id="modalImg" src="assets/coq_coeur.png" alt="">
+    <h2 id="modalTitle"></h2>
+    <div class="modal-score hidden" id="modalScore"></div>
+    <p id="modalText"></p>
+    <button class="menu-btn btn-purple" style="margin-bottom:8px" id="modalBtn1" onclick="modalAction1()"></button>
+    <button class="menu-btn btn-neutral" id="modalBtn2" onclick="modalAction2()"></button>
+  </div>
+</div>
+
+<div class="life-flash" id="lifeFlash">
+  <img src="assets/coq_triste.png" alt="">
+  <div class="lf-txt" id="lifeTxt">-1 ❤️</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+   LE COQ FRANCIS — SUDOKU
+   ===================================================================== */
+
+const WALLET_PAGE = 'https://t.me/FrancisLeCoqBot/wallet';
+const BACKEND     = 'https://mubqtnqulpyehkgubhnh.supabase.co/functions/v1';
+const COMP_LIVES  = 53;
+
+const tg = window.Telegram?.WebApp;
+
+/* ---------- i18n ---------- */
+const I18N = {
+  fr:{
+    tagline:'LE COQ FRANCIS', comp:'COMPÉTITION', unique:'GRILLE UNIQUE', wallet:'CONNECT WALLET',
+    compTitle:'COMPÉTITION', compSub:'Gravis les échelons et gagne des $FRANC virtuels !',
+    resume:'REPRENDRE', neww:'NOUVELLE PARTIE', best:'🏅 TOP 3 SCORES',
+    uniqueTitle:'GRILLE UNIQUE', uniqueSub:'Choisis ta difficulté',
+    notes:'Notes', erase:'Gomme', hint:'Indice', menu:'Menu', retour:'Retour',
+    lives:'VIES', score:'SCORE', time:'TEMPS', errors:'ERREURS', level:'NIVEAU',
+    noScores:'Aucun score pour le moment.\nJoue pour entrer dans le TOP 3 !',
+    lvl:['Très Facile','Facile','Moyen','Dur','Très Dur'],
+    lockedTitle:'RÉSERVÉ AUX HOLDERS',
+    lockedComp:'Le mode <b>Compétition</b> est réservé aux détenteurs de <b>$FRANC</b>.<br>Connecte ton wallet pour débloquer !',
+    lockedLvl:'Cette grille est réservée aux détenteurs de <b>$FRANC</b>.<br>Connecte ton wallet pour la débloquer !',
+    btnConnect:'👛 Connecter le wallet', btnClose:'Fermer',
+    winTitle:'GAGNÉ !', winText:'Cocorico ! Tu as résolu la grille !',
+    loseTitle:'PERDU', loseTextU:'Trop d\'erreurs ! Francis est triste...',
+    gameOver:'GAME OVER', gameOverText:'Plus de vies ! Mais quel parcours, champion !',
+    nextLvl:'Niveau suivant débloqué !', allDone:'Tu as terminé tous les niveaux ! Légende !',
+    replay:'Rejouer', nextLevel:'Niveau suivant', backMenu:'Retour au menu', toMenu:'Menu',
+    hintUsed:'💡 Indice utilisé (-50 pts)', noHint:'Aucune case vide à révéler',
+    walletFranc:'✅ <b>$FRANC détecté !</b>', walletNo:'⚠️ Wallet connecté — aucun $FRANC',
+    walletNone:'👛 Wallet non connecté', confirmQuit:'Quitter la partie ? La progression sera sauvegardée.',
+    newScore:'🎉 Nouveau record ! Score sauvegardé', francWon:'$FRANC virtuels gagnés'
+  },
+  en:{
+    tagline:'LE COQ FRANCIS', comp:'COMPETITION', unique:'SINGLE GRID', wallet:'CONNECT WALLET',
+    compTitle:'COMPETITION', compSub:'Climb the ranks and earn virtual $FRANC!',
+    resume:'RESUME', neww:'NEW GAME', best:'🏅 TOP 3 SCORES',
+    uniqueTitle:'SINGLE GRID', uniqueSub:'Choose your difficulty',
+    notes:'Notes', erase:'Erase', hint:'Hint', menu:'Menu', retour:'Back',
+    lives:'LIVES', score:'SCORE', time:'TIME', errors:'ERRORS', level:'LEVEL',
+    noScores:'No score yet.\nPlay to enter the TOP 3!',
+    lvl:['Very Easy','Easy','Medium','Hard','Very Hard'],
+    lockedTitle:'HOLDERS ONLY',
+    lockedComp:'<b>Competition</b> mode is reserved for <b>$FRANC</b> holders.<br>Connect your wallet to unlock!',
+    lockedLvl:'This grid is reserved for <b>$FRANC</b> holders.<br>Connect your wallet to unlock!',
+    btnConnect:'👛 Connect wallet', btnClose:'Close',
+    winTitle:'YOU WON!', winText:'Cock-a-doodle-doo! You solved the grid!',
+    loseTitle:'GAME LOST', loseTextU:'Too many mistakes! Francis is sad...',
+    gameOver:'GAME OVER', gameOverText:'Out of lives! What a run, champion!',
+    nextLvl:'Next level unlocked!', allDone:'You finished every level! Legend!',
+    replay:'Replay', nextLevel:'Next level', backMenu:'Back to menu', toMenu:'Menu',
+    hintUsed:'💡 Hint used (-50 pts)', noHint:'No empty cell to reveal',
+    walletFranc:'✅ <b>$FRANC detected!</b>', walletNo:'⚠️ Wallet connected — no $FRANC',
+    walletNone:'👛 Wallet not connected', confirmQuit:'Quit the game? Progress will be saved.',
+    newScore:'🎉 New record! Score saved', francWon:'virtual $FRANC earned'
+  }
+};
+let lang = localStorage.getItem('flc_lang') || 'fr';
+function t(k){return I18N[lang][k]}
+
+/* ---------- Difficulty config (clues count out of 81) ---------- */
+// levels: 0 VeryEasy,1 Easy,2 Medium,3 Hard,4 VeryHard
+const LEVELS = [
+  {name:0, clues:46, holderOnly:false, stars:'⭐',        baseScore:1000},
+  {name:1, clues:40, holderOnly:false, stars:'⭐⭐',       baseScore:1500},
+  {name:2, clues:34, holderOnly:true,  stars:'⭐⭐⭐',     baseScore:2200},
+  {name:3, clues:30, holderOnly:true,  stars:'⭐⭐⭐⭐',   baseScore:3000},
+  {name:4, clues:26, holderOnly:true,  stars:'⭐⭐⭐⭐⭐', baseScore:4200},
+];
+
+/* ---------- Holder state ---------- */
+let isHolder = JSON.parse(localStorage.getItem('flc_holder') || 'false');
+let francBalance = Number(localStorage.getItem('flc_balance') || 0);
+
+/* =====================================================================
+   SUDOKU GENERATOR
+   ===================================================================== */
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+function makeSolved(){
+  const g = Array.from({length:9},()=>new Array(9).fill(0));
+  function valid(r,c,n){
+    for(let i=0;i<9;i++){if(g[r][i]===n||g[i][c]===n)return false;}
+    const br=3*((r/3)|0), bc=3*((c/3)|0);
+    for(let i=0;i<3;i++)for(let j=0;j<3;j++)if(g[br+i][bc+j]===n)return false;
+    return true;
+  }
+  function fill(p){
+    if(p===81)return true;
+    const r=(p/9)|0, c=p%9;
+    if(g[r][c]!==0)return fill(p+1);
+    const nums=shuffle([1,2,3,4,5,6,7,8,9]);
+    for(const n of nums){if(valid(r,c,n)){g[r][c]=n;if(fill(p+1))return true;g[r][c]=0;}}
+    return false;
+  }
+  fill(0);
+  return g;
+}
+
+// count solutions (capped at 2) to ensure uniqueness
+function countSolutions(grid,limit=2){
+  const g = grid.map(r=>r.slice());
+  let count=0;
+  function valid(r,c,n){
+    for(let i=0;i<9;i++){if(g[r][i]===n||g[i][c]===n)return false;}
+    const br=3*((r/3)|0),bc=3*((c/3)|0);
+    for(let i=0;i<3;i++)for(let j=0;j<3;j++)if(g[br+i][bc+j]===n)return false;
+    return true;
+  }
+  function solve(){
+    for(let p=0;p<81;p++){
+      const r=(p/9)|0,c=p%9;
+      if(g[r][c]===0){
+        for(let n=1;n<=9;n++){
+          if(valid(r,c,n)){g[r][c]=n;solve();g[r][c]=0;if(count>=limit)return;}
+        }
+        return;
+      }
+    }
+    count++;
+  }
+  solve();
+  return count;
+}
+
+function makePuzzle(clues){
+  const solution = makeSolved();
+  const puzzle = solution.map(r=>r.slice());
+  const cells = shuffle([...Array(81).keys()]);
+  let removed = 0;
+  const target = 81 - clues;
+  for(const idx of cells){
+    if(removed>=target)break;
+    const r=(idx/9)|0, c=idx%9;
+    if(puzzle[r][c]===0)continue;
+    const backup=puzzle[r][c];
+    puzzle[r][c]=0;
+    // keep uniqueness for medium+ ; for easy levels allow faster generation
+    if(clues<40){
+      if(countSolutions(puzzle,2)!==1){puzzle[r][c]=backup;continue;}
+    }
+    removed++;
+  }
+  return {puzzle, solution};
+}
+
+/* =====================================================================
+   GAME STATE
+   ===================================================================== */
+let G = null; // active game
+function freshGame(mode, levelIndex){
+  const {puzzle, solution} = makePuzzle(LEVELS[levelIndex].clues);
+  return {
+    mode,            // 'comp' | 'unique'
+    levelIndex,
+    puzzle:puzzle.map(r=>r.slice()),
+    given:puzzle.map(r=>r.map(v=>v!==0)),
+    solution,
+    notes:Array.from({length:9},()=>Array.from({length:9},()=>new Set())),
+    selected:null,
+    errors:0,
+    maxErrorsUnique:3,
+    score:0,
+    hintsUsed:0,
+    startTime:Date.now(),
+    elapsed:0,
+    // competition-only
+    lives: mode==='comp'?COMP_LIVES:null,
+    compStreak: mode==='comp'?0:0,
+    francEarned: mode==='comp'?0:0,
+  };
+}
+
+let notesMode=false, timerInt=null;
+
+/* =====================================================================
+   SCORE MODEL (competition)
+   Base per level + speed bonus - error penalty - hint penalty
+   ===================================================================== */
+function gridScore(g){
+  const lvl=LEVELS[g.levelIndex];
+  const base=lvl.baseScore;
+  const timeSec=Math.floor(g.elapsed/1000);
+  const speedBonus=Math.max(0, 1200 - timeSec*4);   // faster = more
+  const errPenalty=g.errors*120;
+  const hintPenalty=g.hintsUsed*50;
+  const livesBonus = g.mode==='comp' ? g.lives*8 : 0;
+  return Math.max(50, Math.round(base + speedBonus + livesBonus - errPenalty - hintPenalty));
+}
+
+/* =====================================================================
+   SCREEN MGMT
+   ===================================================================== */
+const SCREENS=['screenMenu','screenComp','screenUnique','screenGame'];
+function show(id){
+  SCREENS.forEach(s=>document.getElementById(s).classList.toggle('hidden', s!==id));
+  document.getElementById('miniPilote').classList.toggle('hidden', id!=='screenGame');
+  if(id!=='screenGame'){stopTimer();}
+  window.scrollTo(0,0);
+}
+
+/* =====================================================================
+   LANGUAGE
+   ===================================================================== */
+function setLang(l){
+  lang=l; localStorage.setItem('flc_lang',l);
+  document.getElementById('flagFR').classList.toggle('active', l==='fr');
+  document.getElementById('flagEN').classList.toggle('active', l==='en');
+  applyLang();
+}
+function applyLang(){
+  document.getElementById('tagline').textContent=t('tagline');
+  document.getElementById('lblComp').textContent=t('comp');
+  document.getElementById('lblUnique').textContent=t('unique');
+  document.getElementById('lblWallet').textContent=t('wallet');
+  document.getElementById('compTitle').textContent=t('compTitle');
+  document.getElementById('compSub').textContent=t('compSub');
+  document.getElementById('lblResume').textContent=t('resume');
+  document.getElementById('lblNew').textContent=t('neww');
+  document.getElementById('lblBest').textContent=t('best');
+  document.getElementById('uniqueTitle').textContent=t('uniqueTitle');
+  document.getElementById('uniqueSub').textContent=t('uniqueSub');
+  document.getElementById('lblNotes').textContent=t('notes');
+  document.getElementById('lblErase').textContent=t('erase');
+  document.getElementById('lblHint').textContent=t('hint');
+  document.getElementById('backComp1').textContent=t('retour');
+  document.getElementById('backUnique').textContent=t('retour');
+  document.getElementById('backGame').textContent=t('menu');
+  renderScores();
+  renderLevelList();
+  renderCompLock();
+  renderWalletStatus();
+}
+
+/* =====================================================================
+   WALLET / HOLDER DETECTION
+   ===================================================================== */
+async function detectHolder(){
+  // Try Telegram backend (same as connect-wallet app)
+  if(tg?.initData){
+    try{
+      const res=await fetch(BACKEND+'/check-franc',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({initData:tg.initData})
+      });
+      const d=await res.json();
+      if(d && d.walletLinked && d.hasFranc){
+        isHolder=true; francBalance=Number(d.balance||0);
+      } else {
+        isHolder=false; francBalance=0;
+      }
+      localStorage.setItem('flc_holder',JSON.stringify(isHolder));
+      localStorage.setItem('flc_balance',String(francBalance));
+    }catch(e){/* keep cached value */}
+  }
+  renderCompLock(); renderWalletStatus(); renderLevelList();
+}
+
+function renderWalletStatus(){
+  const bar=document.getElementById('walletStatus');
+  if(isHolder){
+    bar.className='status-bar franc';
+    const bal=francBalance?Number(francBalance).toLocaleString():'?';
+    bar.innerHTML=`${t('walletFranc')} ${bal} $FRANC`;
+    bar.style.display='block';
+  } else if(localStorage.getItem('flc_walletSeen')==='1'){
+    bar.className='status-bar no-franc';
+    bar.innerHTML=t('walletNo');
+    bar.style.display='block';
+  } else {
+    bar.style.display='none';
+  }
+}
+
+function renderCompLock(){
+  const btn=document.getElementById('btnComp');
+  const lock=document.getElementById('compLock');
+  if(isHolder){
+    btn.classList.remove('btn-comp-orange'); btn.classList.add('btn-comp-green');
+    lock.textContent='🔓';
+  } else {
+    btn.classList.remove('btn-comp-green'); btn.classList.add('btn-comp-orange');
+    lock.textContent='🔒';
+  }
+}
+
+function goConnectWallet(){
+  localStorage.setItem('flc_walletSeen','1');
+  // open the github connect-wallet app (in-place) ; if in Telegram open mini app
+  window.location.href='connect-wallet.html';
+}
+
+/* =====================================================================
+   COMPETITION
+   ===================================================================== */
+function openCompetition(){
+  if(!isHolder){
+    showLockModal('comp');
+    return;
+  }
+  // show submenu
+  const saved=loadCompSave();
+  document.getElementById('btnResume').style.display = saved? 'flex':'none';
+  renderScores();
+  show('screenComp');
+}
+
+function newCompetition(){
+  clearCompSave();
+  G=freshGame('comp',0); // start at very easy, climb up
+  startGame();
+}
+
+function resumeCompetition(){
+  const saved=loadCompSave();
+  if(!saved){newCompetition();return;}
+  G=saved;
+  // rebuild Set notes
+  G.notes=G.notes.map(row=>row.map(arr=>new Set(arr)));
+  G.startTime=Date.now()-(G.elapsed||0);
+  startGame();
+}
+
+function loadCompSave(){
+  try{const s=localStorage.getItem('flc_compSave'); return s?JSON.parse(s):null;}catch(e){return null;}
+}
+function saveComp(){
+  if(!G||G.mode!=='comp')return;
+  const copy=JSON.parse(JSON.stringify(G, (k,v)=> v instanceof Set ? [...v] : v));
+  localStorage.setItem('flc_compSave',JSON.stringify(copy));
+}
+function clearCompSave(){localStorage.removeItem('flc_compSave');}
+
+/* ---- Scores (top 3) ---- */
+function getScores(){try{return JSON.parse(localStorage.getItem('flc_scores')||'[]');}catch(e){return [];}}
+function saveScore(total, levelsCleared, franc){
+  const arr=getScores();
+  arr.push({score:total, levels:levelsCleared, franc, date:Date.now()});
+  arr.sort((a,b)=>b.score-a.score);
+  const top=arr.slice(0,3);
+  localStorage.setItem('flc_scores',JSON.stringify(top));
+  return top.findIndex(s=>s.score===total && s.date===arr.find(x=>x.score===total)?.date);
+}
+function renderScores(){
+  const box=document.getElementById('scoresList');
+  const arr=getScores();
+  if(arr.length===0){box.innerHTML=`<div class="no-scores">${t('noScores').replace('\n','<br>')}</div>`;return;}
+  const medals=['🥇','🥈','🥉'];
+  box.innerHTML=arr.map((s,i)=>{
+    const d=new Date(s.date); const ds=d.toLocaleDateString(lang==='fr'?'fr-FR':'en-GB',{day:'2-digit',month:'2-digit'});
+    return `<div class="score-row r${i+1}">
+      <span class="rank">${medals[i]}</span>
+      <span style="flex:1">
+        <span class="val">${s.score.toLocaleString()}</span>
+        <span class="meta"> · ${s.levels} ${t('level').toLowerCase()}${s.levels>1?'s':''} · ${ds}</span>
+      </span>
+      <span class="meta">🪙 ${s.franc}</span>
+    </div>`;
+  }).join('');
+}
+
+/* =====================================================================
+   UNIQUE GRID LEVELS
+   ===================================================================== */
+function renderLevelList(){
+  const list=document.getElementById('levelList');
+  list.innerHTML='';
+  LEVELS.forEach((lv,i)=>{
+    const unlocked = !lv.holderOnly || isHolder;
+    const btn=document.createElement('button');
+    btn.className='lvl-btn '+(unlocked?'unlocked':'lockedb');
+    btn.innerHTML=`<span class="ll"><span class="stars">${lv.stars}</span> ${t('lvl')[i]}</span>
+      <span class="lk">${unlocked?'🔓':'🔒'}</span>`;
+    btn.onclick=()=>{
+      if(!unlocked){showLockModal('lvl');return;}
+      G=freshGame('unique',i);
+      startGame();
+    };
+    list.appendChild(btn);
+  });
+}
+
+/* =====================================================================
+   START / RENDER GAME
+   ===================================================================== */
+function startGame(){
+  notesMode=false;
+  document.getElementById('toolNotes').classList.remove('active');
+  buildBoard();
+  buildPad();
+  renderHUD();
+  renderBoard();
+  show('screenGame');
+  startTimer();
+}
+
+function buildBoard(){
+  const b=document.getElementById('board');
+  b.innerHTML='';
+  for(let r=0;r<9;r++){
+    for(let c=0;c<9;c++){
+      const cell=document.createElement('div');
+      cell.className='cell'+((r===2||r===5)?' r'+(r+1):'');
+      cell.dataset.r=r; cell.dataset.c=c;
+      cell.onclick=()=>selectCell(r,c);
+      b.appendChild(cell);
+    }
+  }
+}
+
+function buildPad(){
+  const pad=document.getElementById('pad');
+  pad.innerHTML='';
+  for(let n=1;n<=9;n++){
+    const btn=document.createElement('button');
+    btn.className='pad-btn';
+    btn.dataset.n=n;
+    btn.innerHTML=`${n}<span class="cnt" data-cnt="${n}"></span>`;
+    btn.onclick=()=>inputNumber(n);
+    pad.appendChild(btn);
+  }
+}
+
+function renderHUD(){
+  const hud=document.getElementById('hud');
+  document.getElementById('gameLvl').textContent=`${t('level')}: ${t('lvl')[G.levelIndex]} ${LEVELS[G.levelIndex].stars}`;
+  let chips=`
+    <div class="chip time"><span class="lab">${t('time')}</span><span class="num" id="hudTime">0:00</span></div>
+    <div class="chip score"><span class="lab">${t('score')}</span><span class="num" id="hudScore">0</span></div>`;
+  if(G.mode==='comp'){
+    chips+=`<div class="chip lives"><span class="lab">${t('lives')}</span><span class="num" id="hudLives">${G.lives} ❤️</span></div>`;
+  } else {
+    chips+=`<div class="chip errors"><span class="lab">${t('errors')}</span><span class="num" id="hudErr">${G.errors}/${G.maxErrorsUnique}</span></div>`;
+  }
+  hud.innerHTML=chips;
+  updateHUD();
+}
+function updateHUD(){
+  const ts=Math.floor(G.elapsed/1000);
+  const mm=(ts/60)|0, ss=ts%60;
+  const te=document.getElementById('hudTime'); if(te)te.textContent=`${mm}:${String(ss).padStart(2,'0')}`;
+  const se=document.getElementById('hudScore'); if(se)se.textContent=runningScore().toLocaleString();
+  if(G.mode==='comp'){const le=document.getElementById('hudLives'); if(le)le.textContent=`${G.lives} ❤️`;}
+  else {const ee=document.getElementById('hudErr'); if(ee)ee.textContent=`${G.errors}/${G.maxErrorsUnique}`;}
+}
+function runningScore(){
+  // live preview of grid score
+  G.elapsed=Date.now()-G.startTime;
+  return gridScore(G) + (G.mode==='comp'? (G.score||0) : 0);
+}
+
+function renderBoard(){
+  const cells=document.querySelectorAll('#board .cell');
+  cells.forEach(cell=>{
+    const r=+cell.dataset.r, c=+cell.dataset.c;
+    const v=G.puzzle[r][c];
+    cell.classList.remove('fixed','sel','peer','same','err');
+    cell.innerHTML='';
+    if(G.given[r][c]){cell.classList.add('fixed'); cell.textContent=v;}
+    else if(v!==0){cell.textContent=v;}
+    else if(G.notes[r][c].size){
+      const nd=document.createElement('div'); nd.className='notes';
+      for(let n=1;n<=9;n++){const s=document.createElement('span'); s.textContent=G.notes[r][c].has(n)?n:''; nd.appendChild(s);}
+      cell.appendChild(nd);
+    }
+  });
+  highlight();
+  updatePadCounts();
+}
+
+function highlight(){
+  const cells=document.querySelectorAll('#board .cell');
+  const sel=G.selected;
+  cells.forEach(cell=>{
+    const r=+cell.dataset.r, c=+cell.dataset.c;
+    cell.classList.remove('sel','peer','same');
+    if(!sel)return;
+    if(r===sel.r&&c===sel.c){cell.classList.add('sel');return;}
+    if(r===sel.r||c===sel.c||(((r/3)|0)===((sel.r/3)|0)&&((c/3)|0)===((sel.c/3)|0))) cell.classList.add('peer');
+    const selVal=G.puzzle[sel.r][sel.c];
+    if(selVal!==0 && G.puzzle[r][c]===selVal) cell.classList.add('same');
+  });
+}
+
+function updatePadCounts(){
+  const counts=new Array(10).fill(0);
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){const v=G.puzzle[r][c]; if(v)counts[v]++;}
+  document.querySelectorAll('#pad .pad-btn').forEach(btn=>{
+    const n=+btn.dataset.n;
+    const cntEl=btn.querySelector('.cnt');
+    const left=9-counts[n];
+    cntEl.textContent=left>0?left:'';
+    btn.classList.toggle('done', left<=0);
+  });
+}
+
+function selectCell(r,c){
+  G.selected={r,c};
+  highlight();
+}
+
+/* =====================================================================
+   INPUT
+   ===================================================================== */
+function inputNumber(n){
+  if(!G.selected)return;
+  const {r,c}=G.selected;
+  if(G.given[r][c])return;
+  if(notesMode){
+    if(G.puzzle[r][c]!==0)return;
+    if(G.notes[r][c].has(n))G.notes[r][c].delete(n); else G.notes[r][c].add(n);
+    renderBoard(); persist(); return;
+  }
+  // place number
+  if(G.puzzle[r][c]===n){ // tap same -> clear
+    G.puzzle[r][c]=0; renderBoard(); persist(); return;
+  }
+  G.puzzle[r][c]=n;
+  G.notes[r][c].clear();
+  // clear notes of peers
+  if(n===G.solution[r][c]){
+    // correct
+    const cell=cellEl(r,c);
+    cell.classList.remove('err');
+    renderBoard();
+    persist();
+    if(isComplete())onWin();
+  } else {
+    // wrong
+    G.errors++;
+    const cell=cellEl(r,c);
+    cell.classList.add('err'); cell.textContent=n;
+    if(navigator.vibrate)navigator.vibrate(120);
+    setTimeout(()=>{ if(G && G.puzzle[r][c]===n && n!==G.solution[r][c]){G.puzzle[r][c]=0; renderBoard();} },550);
+    onError();
+  }
+  updateHUD();
+}
+
+function cellEl(r,c){return document.querySelector(`#board .cell[data-r="${r}"][data-c="${c}"]`);}
+
+function isComplete(){
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++) if(G.puzzle[r][c]!==G.solution[r][c]) return false;
+  return true;
+}
+
+function onError(){
+  if(G.mode==='comp'){
+    G.lives--;
+    flashLifeLost();
+    persist();
+    if(G.lives<=0){ setTimeout(()=>onGameOver(), 1000); }
+  } else {
+    if(G.errors>=G.maxErrorsUnique){ setTimeout(()=>onLoseUnique(), 650); }
+  }
+}
+
+/* =====================================================================
+   TOOLS
+   ===================================================================== */
+function toggleNotes(){
+  notesMode=!notesMode;
+  document.getElementById('toolNotes').classList.toggle('active',notesMode);
+}
+function eraseCell(){
+  if(!G.selected)return;
+  const {r,c}=G.selected;
+  if(G.given[r][c])return;
+  G.puzzle[r][c]=0; G.notes[r][c].clear();
+  renderBoard(); persist();
+}
+function hintCell(){
+  if(!G.selected){toast(t('noHint'));return;}
+  const {r,c}=G.selected;
+  if(G.given[r][c]||G.puzzle[r][c]===G.solution[r][c]){toast(t('noHint'));return;}
+  G.puzzle[r][c]=G.solution[r][c];
+  G.notes[r][c].clear();
+  G.hintsUsed++;
+  toast(t('hintUsed'));
+  renderBoard(); updateHUD(); persist();
+  if(isComplete())onWin();
+}
+
+/* =====================================================================
+   TIMER
+   ===================================================================== */
+function startTimer(){
+  stopTimer();
+  timerInt=setInterval(()=>{ if(G){G.elapsed=Date.now()-G.startTime; updateHUD();} },1000);
+}
+function stopTimer(){if(timerInt){clearInterval(timerInt);timerInt=null;}}
+
+/* =====================================================================
+   PERSIST (auto-save for resume)
+   ===================================================================== */
+function persist(){
+  if(G && G.mode==='comp'){G.elapsed=Date.now()-G.startTime; saveComp();}
+}
+
+/* =====================================================================
+   WIN / LOSE / GAME OVER
+   ===================================================================== */
+function onWin(){
+  stopTimer();
+  G.elapsed=Date.now()-G.startTime;
+  const gs=gridScore(G);
+  if(G.mode==='comp'){
+    G.score=(G.score||0)+gs;
+    const francThisGrid=Math.round(gs/100);
+    G.francEarned=(G.francEarned||0)+francThisGrid;
+    const cleared=G.levelIndex+1;
+    const hasNext=G.levelIndex < LEVELS.length-1;
+    persist();
+    showModal({
+      img:'assets/coq_coeur.png', cls:'win', title:t('winTitle'),
+      score:`+${gs.toLocaleString()} 🪙 ${francThisGrid} $FRANC`,
+      text: hasNext ? t('nextLvl') : t('allDone'),
+      btn1: hasNext ? t('nextLevel') : t('backMenu'),
+      btn2: t('toMenu'),
+      action1: hasNext ? ()=>{ G.levelIndex++; const np=makePuzzle(LEVELS[G.levelIndex].clues);
+          G.puzzle=np.puzzle.map(r=>r.slice()); G.given=np.puzzle.map(r=>r.map(v=>v!==0));
+          G.solution=np.solution; G.notes=Array.from({length:9},()=>Array.from({length:9},()=>new Set()));
+          G.selected=null; G.errors=0; G.hintsUsed=0; G.startTime=Date.now(); G.elapsed=0;
+          closeModal(); startGame();
+        } : ()=>finishCompetition(),
+      action2: ()=>finishCompetition()
+    });
+  } else {
+    // unique
+    showModal({
+      img:'assets/coq_coeur.png', cls:'win', title:t('winTitle'),
+      score:`${gs.toLocaleString()} pts`,
+      text:t('winText'),
+      btn1:t('replay'), btn2:t('backMenu'),
+      action1:()=>{G=freshGame('unique',G.levelIndex); closeModal(); startGame();},
+      action2:()=>{closeModal(); show('screenUnique');}
+    });
+  }
+}
+
+function finishCompetition(){
+  // tally total and save score
+  const total=(G.score||0);
+  const cleared=G.levelIndex + (isComplete()?1:0);
+  const levelsCleared=Math.max(1, cleared);
+  saveScore(total, levelsCleared, G.francEarned||0);
+  clearCompSave();
+  closeModal();
+  toast(`${t('newScore')} · ${total.toLocaleString()} pts`);
+  renderScores();
+  show('screenComp');
+  document.getElementById('btnResume').style.display='none';
+}
+
+function onLoseUnique(){
+  stopTimer();
+  showModal({
+    img:'assets/coq_triste.png', cls:'lose', title:t('loseTitle'),
+    text:t('loseTextU'),
+    btn1:t('replay'), btn2:t('backMenu'),
+    action1:()=>{G=freshGame('unique',G.levelIndex); closeModal(); startGame();},
+    action2:()=>{closeModal(); show('screenUnique');}
+  });
+}
+
+function onGameOver(){
+  stopTimer();
+  const total=(G.score||0);
+  const levelsCleared=Math.max(1,G.levelIndex);
+  saveScore(total, levelsCleared, G.francEarned||0);
+  clearCompSave();
+  showModal({
+    img:'assets/coq_stupefait.png', cls:'lose', title:t('gameOver'),
+    score:`${total.toLocaleString()} pts · 🪙 ${G.francEarned||0} $FRANC`,
+    text:t('gameOverText'),
+    btn1:t('replay'), btn2:t('backMenu'),
+    action1:()=>{closeModal(); newCompetition();},
+    action2:()=>{closeModal(); renderScores(); show('screenComp'); document.getElementById('btnResume').style.display='none';}
+  });
+}
+
+/* =====================================================================
+   LIFE LOSS ANIMATION (Coq Triste)
+   ===================================================================== */
+function flashLifeLost(){
+  const f=document.getElementById('lifeFlash');
+  document.getElementById('lifeTxt').textContent=`-1 ❤️ · ${G.lives}`;
+  f.classList.remove('show'); void f.offsetWidth; f.classList.add('show');
+  setTimeout(()=>f.classList.remove('show'),900);
+}
+
+/* =====================================================================
+   MODALS
+   ===================================================================== */
+let _a1=null,_a2=null;
+function showModal({img,cls,title,score,text,btn1,btn2,action1,action2}){
+  document.getElementById('modalImg').src=img;
+  const tt=document.getElementById('modalTitle'); tt.className=cls||''; tt.textContent=title;
+  const sc=document.getElementById('modalScore');
+  if(score){sc.textContent=score; sc.classList.remove('hidden');}else{sc.classList.add('hidden');}
+  document.getElementById('modalText').innerHTML=text;
+  document.getElementById('modalBtn1').textContent=btn1;
+  document.getElementById('modalBtn2').textContent=btn2;
+  _a1=action1; _a2=action2;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('show');}
+function modalAction1(){if(_a1)_a1();}
+function modalAction2(){if(_a2)_a2();}
+
+function showLockModal(kind){
+  showModal({
+    img:'assets/coq_triste.png', cls:'locked', title:t('lockedTitle'),
+    text: kind==='comp'? t('lockedComp') : t('lockedLvl'),
+    btn1:t('btnConnect'), btn2:t('btnClose'),
+    action1:()=>{closeModal(); goConnectWallet();},
+    action2:()=>closeModal()
+  });
+}
+
+/* =====================================================================
+   QUIT
+   ===================================================================== */
+function quitGame(){
+  if(G && G.mode==='comp'){
+    persist();
+    show('screenMenu');
+  } else {
+    show('screenUnique');
+  }
+}
+
+/* =====================================================================
+   TOAST
+   ===================================================================== */
+let toastT=null;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastT);
+  toastT=setTimeout(()=>el.classList.remove('show'),2200);
+}
+
+/* =====================================================================
+   INIT
+   ===================================================================== */
+window.addEventListener('load',()=>{
+  if(tg){tg.ready(); tg.expand();}
+  setLang(lang);
+  renderCompLock(); renderWalletStatus(); renderLevelList(); renderScores();
+  detectHolder(); // async refresh from backend
+});
+</script>
+</body>
+</html>
