@@ -368,9 +368,9 @@ body::before{
    LE COQ FRANCIS — SUDOKU
    ===================================================================== */
 
-const WALLET_PAGE = 'https://t.me/FrancisLeCoqBot/wallet';
+const WALLET_PAGE = 'https://franclecoq.github.io/Wallet/connect-wallet.html';
 const BACKEND     = 'https://mubqtnqulpyehkgubhnh.supabase.co/functions/v1';
-const COMP_LIVES  = 53;
+const COMP_LIVES  = 3;
 
 const tg = window.Telegram?.WebApp;
 
@@ -552,7 +552,7 @@ function gridScore(g){
   const speedBonus=Math.max(0, 1200 - timeSec*4);   // faster = more
   const errPenalty=g.errors*120;
   const hintPenalty=g.hintsUsed*50;
-  const livesBonus = g.mode==='comp' ? g.lives*8 : 0;
+  const livesBonus = g.mode==='comp' ? g.lives*150 : 0;
   return Math.max(50, Math.round(base + speedBonus + livesBonus - errPenalty - hintPenalty));
 }
 
@@ -654,8 +654,8 @@ function renderCompLock(){
 
 function goConnectWallet(){
   localStorage.setItem('flc_walletSeen','1');
-  // open the github connect-wallet app (in-place) ; if in Telegram open mini app
-  window.location.href='connect-wallet.html';
+  // page unique hébergée sur GitHub
+  window.location.href=WALLET_PAGE;
 }
 
 /* =====================================================================
