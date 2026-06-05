@@ -17,13 +17,15 @@
   --cyan:#0ea5e9;
   --txt:#fff; --muted:#c9aaee;
   --cell-bg:#2a1052;
-  --cell-fixed:#3a1670;
+  --cell-fixed:#2a1052;                 /* same as empty cells now */
   --cell-sel:rgba(14,165,233,0.55);
-  --cell-peer:rgba(124,58,237,0.30);
+  --cell-peer:#3a1670;                  /* highlight for impacted row/col/box */
   --cell-same:rgba(163,230,53,0.28);
   --cell-err:rgba(239,68,68,0.65);
-  --grid-line:rgba(120,70,190,0.55);
-  --grid-thick:rgba(168,85,247,0.95);
+  --grid-bg:#1d0a3d;                    /* line color between cells */
+  --grid-thin:rgba(120,70,190,0.45);    /* thin lines between cells */
+  --grid-mid:rgba(168,85,247,0.85);     /* 3x3 sub-grid separators */
+  --grid-thick:rgba(168,85,247,0.95);   /* outer border (thickest) */
 }
 html,body{height:100%}
 body{
@@ -165,16 +167,27 @@ body.playing #screenGame.card{
 .sudoku{
   display:grid; grid-template-columns:repeat(9,1fr);
   width:100%; max-width:440px; aspect-ratio:1/1;
-  background:var(--grid-thick);
-  border:3px solid var(--grid-thick); border-radius:12px; overflow:hidden;
+  background:var(--grid-bg);
+  border:4px solid var(--grid-thick); border-radius:12px; overflow:hidden;
   box-shadow:0 0 30px rgba(120,40,200,0.4);
-  gap:1px;
+  gap:0;
 }
 .cell{
   background:var(--cell-bg); display:flex; align-items:center; justify-content:center;
   font-family:'Fredoka One',cursive; font-size:clamp(16px,5.2vw,24px);
   cursor:pointer; color:#fff; position:relative; transition:background .1s;
+  /* thin lines between every cell */
+  border-right:1px solid var(--grid-thin);
+  border-bottom:1px solid var(--grid-thin);
 }
+/* remove outermost cell borders (the .sudoku border handles those) */
+.cell:nth-child(9n){border-right:none}
+.cell:nth-child(n+73){border-bottom:none}
+/* medium separators for the 3x3 sub-grids (cols 3 & 6) */
+.cell:nth-child(3n):not(:nth-child(9n)){border-right:2px solid var(--grid-mid)}
+/* medium separators for the 3x3 sub-grids (rows 3 & 6) */
+.cell.r3, .cell.r6{border-bottom:2px solid var(--grid-mid)}
+
 .cell.fixed{color:#fff; background:var(--cell-fixed); cursor:default}
 .cell.sel{background:var(--cell-sel)!important}
 .cell.peer{background:var(--cell-peer)}
@@ -193,9 +206,6 @@ body.playing #screenGame.card{
 .cell.reveal-good{color:#39ff14!important; font-weight:bold; animation:popGood .5s ease-out}
 @keyframes popGood{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}
 
-/* thick block borders */
-.cell:nth-child(3n):not(:nth-child(9n)){box-shadow:1px 0 0 var(--grid-thick)}
-.r3, .r6{box-shadow:0 1px 0 var(--grid-thick)}
 body.locked-board #board, body.locked-board .pad, body.locked-board .pad-tools, body.locked-board #btnValidate{pointer-events:none}
 .notes{position:absolute; inset:2px; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); font-family:'Fredoka One'; font-size:8px; color:var(--muted); pointer-events:none}
 .notes span{display:flex; align-items:center; justify-content:center}
@@ -212,14 +222,16 @@ body.locked-board #board, body.locked-board .pad, body.locked-board .pad-tools, 
 .pad-btn:active{transform:scale(0.93); background:linear-gradient(135deg,rgba(124,58,237,0.7),rgba(91,33,182,0.7))}
 .pad-btn .cnt{position:absolute; top:2px; right:4px; font-family:'Fredoka One'; font-size:8px; color:var(--muted)}
 .pad-btn.done{opacity:.35; pointer-events:none}
-.pad-tools{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; width:100%; max-width:440px; margin:8px auto 0}
+.pad-tools{display:grid; grid-template-columns:repeat(4,1fr); gap:5px; width:100%; max-width:440px; margin:8px auto 0}
+body.mode-unique .pad-tools{grid-template-columns:repeat(3,1fr)}
 .tool-btn{
   background:rgba(255,255,255,0.06); border:1.5px solid rgba(168,85,247,0.35);
-  border-radius:12px; padding:11px 4px; font-family:'Fredoka One'; font-size:12px;
+  border-radius:12px; padding:11px 2px; font-family:'Fredoka One'; font-size:11px;
   color:#fff; cursor:pointer; touch-action:manipulation; transition:transform .1s;
-  display:flex; align-items:center; justify-content:center; gap:4px; min-width:0;
-  white-space:nowrap; overflow:hidden;
+  display:flex; align-items:center; justify-content:center; gap:3px; min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
+.tool-btn span{overflow:hidden; text-overflow:ellipsis}
 .tool-btn:active{transform:scale(0.94)}
 .tool-btn.active{background:rgba(14,165,233,0.3); border-color:var(--cyan); color:#7dd3fc}
 
@@ -357,10 +369,11 @@ body.locked-board #board, body.locked-board .pad, body.locked-board .pad-tools, 
     <div class="hud" id="hud"></div>
     <div class="grid-wrap"><div class="sudoku" id="board"></div></div>
     <div class="pad" id="pad"></div>
-    <div class="pad-tools">
+    <div class="pad-tools" id="padTools">
       <button class="tool-btn" id="toolNotes" onclick="toggleNotes()">✏️ <span id="lblNotes">Notes</span></button>
       <button class="tool-btn" onclick="eraseCell()">🧽 <span id="lblErase">Gomme</span></button>
       <button class="tool-btn" id="toolHint" onclick="hintCell()">💡 <span id="lblHint">Indice</span></button>
+      <button class="tool-btn" id="toolCount" onclick="buyCountHelp()">🔢 <span id="lblCount">Compteur</span></button>
     </div>
     <button class="menu-btn btn-comp-green" id="btnValidate" style="margin-top:10px;display:none" onclick="validateUnique()">
       <span class="ico">✅</span><span id="lblValidate">VALIDER LA GRILLE</span>
@@ -431,6 +444,9 @@ const I18N = {
     replay:'Rejouer', nextLevel:'Niveau suivant', backMenu:'Retour au menu', toMenu:'Menu',
     hintUsed:'💡 Indice utilisé (-200 $FRANC)', noHint:'Aucune case vide à révéler',
     noFranc:'❌ Pas assez de $FRANC pour un indice', maxHints:'❌ Limite de 4 indices atteinte',
+    countLabel:'Compteur', countLabelOn:'Compteur ✓',
+    countBought:'🔢 Compteur activé pour la partie (-400 $FRANC)',
+    countOn:'🔢 Compteur déjà actif', noFrancCount:'❌ Pas assez de $FRANC (400) pour le compteur',
     validate:'VALIDER LA GRILLE', notFull:'⚠️ Remplis toute la grille avant de valider',
     walletFranc:'✅ <b>$FRANC détecté !</b>', walletNo:'⚠️ Wallet connecté — aucun $FRANC',
     walletNone:'👛 Wallet non connecté', confirmQuit:'Quitter la partie ? La progression sera sauvegardée.',
@@ -456,6 +472,9 @@ const I18N = {
     replay:'Replay', nextLevel:'Next level', backMenu:'Back to menu', toMenu:'Menu',
     hintUsed:'💡 Hint used (-200 $FRANC)', noHint:'No empty cell to reveal',
     noFranc:'❌ Not enough $FRANC for a hint', maxHints:'❌ 4-hint limit reached',
+    countLabel:'Counter', countLabelOn:'Counter ✓',
+    countBought:'🔢 Counter active for the game (-400 $FRANC)',
+    countOn:'🔢 Counter already active', noFrancCount:'❌ Not enough $FRANC (400) for the counter',
     validate:'VALIDATE GRID', notFull:'⚠️ Fill the whole grid before validating',
     walletFranc:'✅ <b>$FRANC detected!</b>', walletNo:'⚠️ Wallet connected — no $FRANC',
     walletNone:'👛 Wallet not connected', confirmQuit:'Quit the game? Progress will be saved.',
@@ -584,6 +603,7 @@ function freshGame(mode, levelIndex){
     maxErrorsUnique:3,
     score:0,
     hintsUsed:0,
+    countHelp:false,           // paid counting help (competition only)
     startTime:Date.now(),
     elapsed:0,
     // competition-only
@@ -605,7 +625,7 @@ function show(id){
   SCREENS.forEach(s=>document.getElementById(s).classList.toggle('hidden', s!==id));
   document.getElementById('miniPilote').classList.toggle('hidden', id!=='screenGame');
   document.body.classList.toggle('playing', id==='screenGame');
-  if(id!=='screenGame'){stopTimer();}
+  if(id!=='screenGame'){stopTimer(); document.body.classList.remove('mode-unique');}
   window.scrollTo(0,0);
 }
 
@@ -799,8 +819,10 @@ function startGame(){
   // mode-specific buttons
   document.getElementById('btnValidate').style.display = (G.mode==='unique')?'flex':'none';
   document.getElementById('toolHint').style.display = (G.mode==='comp')?'flex':'none';
+  document.getElementById('toolCount').style.display = (G.mode==='comp')?'flex':'none';
+  document.body.classList.toggle('mode-unique', G.mode==='unique');
   document.getElementById('lblValidate').textContent = t('validate');
-  if(G.mode==='comp') updateHintLabel();
+  if(G.mode==='comp'){ updateHintLabel(); updateCountButton(); }
   buildBoard();
   buildPad();
   renderHUD();
@@ -892,6 +914,15 @@ function highlight(){
 }
 
 function updatePadCounts(){
+  const show = G && G.countHelp;
+  if(!show){
+    // counting help OFF: clear all counters, no 'done' dimming
+    document.querySelectorAll('#pad .pad-btn').forEach(btn=>{
+      btn.querySelector('.cnt').textContent='';
+      btn.classList.remove('done');
+    });
+    return;
+  }
   const counts=new Array(10).fill(0);
   for(let r=0;r<9;r++)for(let c=0;c<9;c++){const v=G.puzzle[r][c]; if(v)counts[v]++;}
   document.querySelectorAll('#pad .pad-btn').forEach(btn=>{
@@ -999,6 +1030,27 @@ function hintCell(){
 function updateHintLabel(){
   const lbl=document.getElementById('lblHint');
   if(lbl && G && G.mode==='comp') lbl.textContent=`${t('hint')} (${G.hintsUsed}/${MAX_HINTS})`;
+}
+
+/* Paid counting help — competition only, 400 $FRANC, lasts the whole run */
+const COUNT_COST = 400;
+function buyCountHelp(){
+  if(!G || G.mode!=='comp')return;
+  if(G.countHelp){ toast(t('countOn')); return; }   // already active
+  if(getFranc()<COUNT_COST){ toast(t('noFrancCount')); return; }
+  addFranc(-COUNT_COST);
+  G.countHelp=true;
+  toast(t('countBought'));
+  updateCountButton();
+  updatePadCounts();
+  updateHUD(); persist();
+}
+function updateCountButton(){
+  const btn=document.getElementById('toolCount');
+  const lbl=document.getElementById('lblCount');
+  if(!btn||!lbl||!G)return;
+  if(G.countHelp){ btn.classList.add('active'); lbl.textContent=t('countLabelOn'); }
+  else { btn.classList.remove('active'); lbl.textContent=`${t('countLabel')} 400`; }
 }
 
 /* =====================================================================
