@@ -92,6 +92,11 @@ body.playing #screenGame.card{
 .menu-btn .ico{font-size:24px; line-height:1}
 .menu-btn .lock{position:absolute; right:14px; font-size:20px}
 #btnComp{padding-right:44px; font-size:21px}
+#btnWallet{padding-right:44px; padding-top:12px; padding-bottom:12px; font-size:18px}
+.wallet-text{display:flex; flex-direction:column; align-items:center; line-height:1.1}
+.wallet-sub{font-family:'Fredoka One',cursive; font-size:10px; letter-spacing:0.5px; margin-top:3px; opacity:.95}
+.wallet-sub.ok{color:#bbf7d0}
+.wallet-sub.warn{color:#fde68a}
 
 .btn-comp-green{background:linear-gradient(135deg,#16a34a,#15803d); box-shadow:0 5px 22px rgba(22,163,74,0.45)}
 .btn-comp-orange{background:linear-gradient(135deg,#d97706,#b45309); box-shadow:0 5px 22px rgba(217,119,6,0.40)}
@@ -160,7 +165,18 @@ body.playing #screenGame.card{
 .chip.errors .num{color:var(--orange-l)}
 
 /* pilote mini watch */
-.mini-pilote{position:fixed; bottom:12px; right:12px; width:54px; height:54px; z-index:30; pointer-events:none; opacity:.9; filter:drop-shadow(0 3px 8px rgba(0,0,0,0.6)); animation:bob 3.6s ease-in-out infinite}
+/* floating rooster sitting in the pad (next to the 9) */
+.pad-coq{position:relative; display:flex; align-items:center; justify-content:center; cursor:pointer; touch-action:manipulation; min-width:0}
+.pad-coq img{width:100%; max-width:64px; height:auto; object-fit:contain; filter:drop-shadow(0 3px 8px rgba(0,0,0,0.6)); animation:bob 3.6s ease-in-out infinite; pointer-events:none}
+.pad-coq img.coq-press{animation:coqPress .35s ease-out}
+@keyframes coqPress{0%{transform:scale(1)}35%{transform:scale(0.82) rotate(-4deg)}70%{transform:scale(1.08) rotate(3deg)}100%{transform:scale(1)}}
+.pad-coq .hearts{position:absolute; inset:0; pointer-events:none; overflow:visible}
+.pad-coq .heart{position:absolute; bottom:30%; transform:translateX(-50%); opacity:0; animation:heartFly 1.4s ease-out forwards}
+@keyframes heartFly{
+  0%{opacity:0; transform:translate(-50%,0) scale(.4)}
+  15%{opacity:1; transform:translate(-50%,-8px) scale(1)}
+  100%{opacity:0; transform:translate(-50%,-70px) scale(1.1)}
+}
 
 /* Sudoku grid */
 .grid-wrap{width:100%; display:flex; justify-content:center}
@@ -308,7 +324,6 @@ body.mode-unique .pad-tools{grid-template-columns:repeat(3,1fr)}
 
   <!-- ============ MENU ============ -->
   <div class="card" id="screenMenu">
-    <div class="status-bar" id="walletStatus" style="display:none"></div>
 
     <button class="menu-btn btn-unique" onclick="show('screenUnique')">
       <span class="ico">🎯</span><span id="lblUnique">GRILLE UNIQUE</span>
@@ -319,8 +334,10 @@ body.mode-unique .pad-tools{grid-template-columns:repeat(3,1fr)}
       <span class="lock" id="compLock">🔒</span>
     </button>
 
-    <button class="menu-btn btn-wallet" onclick="goConnectWallet()">
-      <span class="ico">👛</span><span id="lblWallet">CONNECT WALLET</span>
+    <button class="menu-btn btn-wallet" id="btnWallet" onclick="goConnectWallet()">
+      <span class="ico">👛</span>
+      <span class="wallet-text"><span id="lblWallet">CONNECT WALLET</span><span class="wallet-sub" id="walletSub"></span></span>
+      <span class="lock" id="walletLock">🔒</span>
     </button>
 
     <div class="lang-row">
@@ -382,8 +399,6 @@ body.mode-unique .pad-tools{grid-template-columns:repeat(3,1fr)}
 
 </div>
 
-<!-- mini pilote during game -->
-<img class="mini-pilote hidden" id="miniPilote" alt="">
 
 <!-- Overlays -->
 <div class="overlay" id="modalOverlay">
@@ -450,6 +465,7 @@ const I18N = {
     validate:'VALIDER LA GRILLE', notFull:'⚠️ Remplis toute la grille avant de valider',
     walletFranc:'✅ <b>$FRANC détecté !</b>', walletNo:'⚠️ Wallet connecté — aucun $FRANC',
     walletNone:'👛 Wallet non connecté', confirmQuit:'Quitter la partie ? La progression sera sauvegardée.',
+    wConnected:'✅ Connecté', wNoFranc:'⚠️ Connecté — aucun $FRANC', wNotConnected:'Non connecté',
     newScore:'🎉 Nouveau record ! $FRANC sauvegardé', francWon:'$FRANC virtuels gagnés'
   },
   en:{
@@ -478,6 +494,7 @@ const I18N = {
     validate:'VALIDATE GRID', notFull:'⚠️ Fill the whole grid before validating',
     walletFranc:'✅ <b>$FRANC detected!</b>', walletNo:'⚠️ Wallet connected — no $FRANC',
     walletNone:'👛 Wallet not connected', confirmQuit:'Quit the game? Progress will be saved.',
+    wConnected:'✅ Connected', wNoFranc:'⚠️ Connected — no $FRANC', wNotConnected:'Not connected',
     newScore:'🎉 New record! $FRANC saved', francWon:'virtual $FRANC earned'
   }
 };
@@ -623,7 +640,6 @@ let notesMode=false, timerInt=null;
 const SCREENS=['screenMenu','screenComp','screenUnique','screenGame'];
 function show(id){
   SCREENS.forEach(s=>document.getElementById(s).classList.toggle('hidden', s!==id));
-  document.getElementById('miniPilote').classList.toggle('hidden', id!=='screenGame');
   document.body.classList.toggle('playing', id==='screenGame');
   if(id!=='screenGame'){stopTimer(); document.body.classList.remove('mode-unique');}
   window.scrollTo(0,0);
@@ -664,7 +680,10 @@ function applyLang(){
 
 /* =====================================================================
    WALLET / HOLDER DETECTION
+   3 states: holder ($FRANC) / linked-no-franc / not-connected
    ===================================================================== */
+let walletLinked = JSON.parse(localStorage.getItem('flc_walletLinked') || 'false');
+
 async function detectHolder(){
   // Try Telegram backend (same as connect-wallet app)
   if(tg?.initData){
@@ -674,6 +693,7 @@ async function detectHolder(){
         body:JSON.stringify({initData:tg.initData})
       });
       const d=await res.json();
+      walletLinked = !!(d && d.walletLinked);
       if(d && d.walletLinked && d.hasFranc){
         isHolder=true; francBalance=Number(d.balance||0);
       } else {
@@ -681,24 +701,35 @@ async function detectHolder(){
       }
       localStorage.setItem('flc_holder',JSON.stringify(isHolder));
       localStorage.setItem('flc_balance',String(francBalance));
+      localStorage.setItem('flc_walletLinked',JSON.stringify(walletLinked));
     }catch(e){/* keep cached value */}
   }
   renderCompLock(); renderWalletStatus(); renderLevelList();
 }
 
 function renderWalletStatus(){
-  const bar=document.getElementById('walletStatus');
+  const sub=document.getElementById('walletSub');
+  const lock=document.getElementById('walletLock');
+  const btn=document.getElementById('btnWallet');
+  if(!sub||!lock||!btn)return;
+  // color follows $FRANC state: green+open ONLY if holder, else orange+closed
+  btn.classList.remove('btn-wallet','btn-comp-green','btn-comp-orange');
   if(isHolder){
-    bar.className='status-bar franc';
     const bal=francBalance?Number(francBalance).toLocaleString():'?';
-    bar.innerHTML=`${t('walletFranc')} ${bal} $FRANC`;
-    bar.style.display='block';
-  } else if(localStorage.getItem('flc_walletSeen')==='1'){
-    bar.className='status-bar no-franc';
-    bar.innerHTML=t('walletNo');
-    bar.style.display='block';
+    sub.className='wallet-sub ok';
+    sub.textContent=`${t('wConnected')} · ${bal} $FRANC`;
+    lock.textContent='🔓';
+    btn.classList.add('btn-comp-green');
+  } else if(walletLinked){
+    sub.className='wallet-sub warn';
+    sub.textContent=t('wNoFranc');
+    lock.textContent='🔒';
+    btn.classList.add('btn-comp-orange');
   } else {
-    bar.style.display='none';
+    sub.className='wallet-sub warn';
+    sub.textContent=t('wNotConnected');
+    lock.textContent='🔒';
+    btn.classList.add('btn-comp-orange');
   }
 }
 
@@ -715,7 +746,6 @@ function renderCompLock(){
 }
 
 function goConnectWallet(){
-  localStorage.setItem('flc_walletSeen','1');
   // page unique hébergée sur GitHub
   window.location.href=WALLET_PAGE;
 }
@@ -855,6 +885,37 @@ function buildPad(){
     btn.innerHTML=`${n}<span class="cnt" data-cnt="${n}"></span>`;
     btn.onclick=()=>inputNumber(n);
     pad.appendChild(btn);
+  }
+  // 10th slot (next to the 9) — floating clickable rooster
+  const coq=document.createElement('div');
+  coq.className='pad-coq';
+  coq.id='padCoq';
+  coq.innerHTML=`<img id="miniPilote" src="${IMG.coq_pilote}" alt="Francis"><span class="hearts" id="coqHearts"></span>`;
+  coq.onclick=tapCoq;
+  pad.appendChild(coq);
+  // restore current floating state (sad/astonished) if a timer is active
+  if(_miniState) document.getElementById('miniPilote').src=_miniState;
+}
+
+/* Tap the pad rooster: press animation + flying hearts */
+function tapCoq(){
+  const coq=document.getElementById('padCoq');
+  const img=document.getElementById('miniPilote');
+  if(!coq||!img)return;
+  // press animation
+  img.classList.remove('coq-press'); void img.offsetWidth; img.classList.add('coq-press');
+  // spawn a few hearts that float up and fade
+  const wrap=document.getElementById('coqHearts');
+  const N=4+Math.floor(Math.random()*2);
+  for(let i=0;i<N;i++){
+    const h=document.createElement('span');
+    h.className='heart';
+    h.textContent='❤️';
+    h.style.left=(20+Math.random()*60)+'%';
+    h.style.animationDelay=(i*70)+'ms';
+    h.style.fontSize=(11+Math.random()*8)+'px';
+    wrap.appendChild(h);
+    setTimeout(()=>h.remove(),1500);
   }
 }
 
@@ -1218,6 +1279,7 @@ function onGameOver(){
    - floating mini coq turns SAD for 30s, then back to pilot
    ===================================================================== */
 let miniTimer=null;
+let _miniState=null;   // current floating coq override (sad/astonished), null = pilot
 function flashLifeLost(){
   const f=document.getElementById('lifeFlash');
   document.getElementById('lifeTxt').textContent=`-1 ❤️ · ${G.lives}`;
@@ -1227,14 +1289,15 @@ function flashLifeLost(){
   setMiniCoq(IMG.coq_triste, 30000);
 }
 function setMiniCoq(src, ms){
+  _miniState = (src===IMG.coq_pilote) ? null : src;
   const mini=document.getElementById('miniPilote');
-  if(!mini)return;
-  mini.src=src;
+  if(mini)mini.src=src;
   if(miniTimer)clearTimeout(miniTimer);
-  miniTimer=setTimeout(()=>{ mini.src=IMG.coq_pilote; miniTimer=null; }, ms);
+  miniTimer=setTimeout(()=>{ _miniState=null; const m=document.getElementById('miniPilote'); if(m)m.src=IMG.coq_pilote; miniTimer=null; }, ms);
 }
 function resetMiniPilot(){
   if(miniTimer){clearTimeout(miniTimer);miniTimer=null;}
+  _miniState=null;
   const mini=document.getElementById('miniPilote');
   if(mini)mini.src=IMG.coq_pilote;
 }
@@ -1297,7 +1360,6 @@ function toast(msg){
 window.addEventListener('load',()=>{
   // set base64 images
   document.getElementById('brandImg').src=IMG.coq_pilote;
-  document.getElementById('miniPilote').src=IMG.coq_pilote;
   document.getElementById('modalImg').src=IMG.coq_coeur;
   document.getElementById('lifeImg').src=IMG.coq_triste;
   if(tg){tg.ready(); tg.expand();}
