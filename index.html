@@ -166,8 +166,8 @@ body.playing #screenGame.card{
 
 /* pilote mini watch */
 /* floating rooster sitting in the pad (next to the 9) */
-.pad-coq{position:relative; display:flex; align-items:center; justify-content:center; cursor:pointer; touch-action:manipulation; min-width:0}
-.pad-coq img{width:100%; max-width:64px; height:auto; object-fit:contain; filter:drop-shadow(0 3px 8px rgba(0,0,0,0.6)); animation:bob 3.6s ease-in-out infinite; pointer-events:none}
+.pad-coq{position:relative; display:flex; align-items:center; justify-content:center; cursor:pointer; touch-action:manipulation; min-width:0; height:100%; overflow:visible}
+.pad-coq img{width:auto; height:100%; max-width:100%; max-height:100%; object-fit:contain; filter:drop-shadow(0 3px 8px rgba(0,0,0,0.6)); animation:bob 3.6s ease-in-out infinite; pointer-events:none}
 .pad-coq img.coq-press{animation:coqPress .35s ease-out}
 @keyframes coqPress{0%{transform:scale(1)}35%{transform:scale(0.82) rotate(-4deg)}70%{transform:scale(1.08) rotate(3deg)}100%{transform:scale(1)}}
 .pad-coq .hearts{position:absolute; inset:0; pointer-events:none; overflow:visible}
@@ -227,7 +227,7 @@ body.locked-board #board, body.locked-board .pad, body.locked-board .pad-tools, 
 .notes span{display:flex; align-items:center; justify-content:center}
 
 /* number pad */
-.pad{display:grid; grid-template-columns:repeat(5,1fr); gap:6px; width:100%; max-width:440px; margin:14px auto 0}
+.pad{display:grid; grid-template-columns:repeat(5,1fr); grid-auto-rows:1fr; gap:6px; width:100%; max-width:440px; margin:14px auto 0}
 .pad-btn{
   background:linear-gradient(135deg,rgba(124,58,237,0.45),rgba(91,33,182,0.45));
   border:1.5px solid rgba(168,85,247,0.4); border-radius:12px;
@@ -238,8 +238,7 @@ body.locked-board #board, body.locked-board .pad, body.locked-board .pad-tools, 
 .pad-btn:active{transform:scale(0.93); background:linear-gradient(135deg,rgba(124,58,237,0.7),rgba(91,33,182,0.7))}
 .pad-btn .cnt{position:absolute; top:2px; right:4px; font-family:'Fredoka One'; font-size:8px; color:var(--muted)}
 .pad-btn.done{opacity:.35; pointer-events:none}
-.pad-tools{display:grid; grid-template-columns:repeat(4,1fr); gap:5px; width:100%; max-width:440px; margin:8px auto 0}
-body.mode-unique .pad-tools{grid-template-columns:repeat(3,1fr)}
+.pad-tools{display:grid; grid-template-columns:repeat(2,1fr); gap:6px; width:100%; max-width:440px; margin:8px auto 0}
 .tool-btn{
   background:rgba(255,255,255,0.06); border:1.5px solid rgba(168,85,247,0.35);
   border-radius:12px; padding:11px 2px; font-family:'Fredoka One'; font-size:11px;
@@ -389,6 +388,8 @@ body.mode-unique .pad-tools{grid-template-columns:repeat(3,1fr)}
     <div class="pad-tools" id="padTools">
       <button class="tool-btn" id="toolNotes" onclick="toggleNotes()">✏️ <span id="lblNotes">Notes</span></button>
       <button class="tool-btn" onclick="eraseCell()">🧽 <span id="lblErase">Gomme</span></button>
+    </div>
+    <div class="pad-tools" id="padToolsComp">
       <button class="tool-btn" id="toolHint" onclick="hintCell()">💡 <span id="lblHint">Indice</span></button>
       <button class="tool-btn" id="toolCount" onclick="buyCountHelp()">🔢 <span id="lblCount">Compteur</span></button>
     </div>
@@ -641,7 +642,7 @@ const SCREENS=['screenMenu','screenComp','screenUnique','screenGame'];
 function show(id){
   SCREENS.forEach(s=>document.getElementById(s).classList.toggle('hidden', s!==id));
   document.body.classList.toggle('playing', id==='screenGame');
-  if(id!=='screenGame'){stopTimer(); document.body.classList.remove('mode-unique');}
+  if(id!=='screenGame'){stopTimer();}
   window.scrollTo(0,0);
 }
 
@@ -848,9 +849,7 @@ function startGame(){
   document.getElementById('toolNotes').classList.remove('active');
   // mode-specific buttons
   document.getElementById('btnValidate').style.display = (G.mode==='unique')?'flex':'none';
-  document.getElementById('toolHint').style.display = (G.mode==='comp')?'flex':'none';
-  document.getElementById('toolCount').style.display = (G.mode==='comp')?'flex':'none';
-  document.body.classList.toggle('mode-unique', G.mode==='unique');
+  document.getElementById('padToolsComp').style.display = (G.mode==='comp')?'grid':'none';
   document.getElementById('lblValidate').textContent = t('validate');
   if(G.mode==='comp'){ updateHintLabel(); updateCountButton(); }
   buildBoard();
