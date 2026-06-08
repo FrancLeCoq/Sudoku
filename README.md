@@ -76,6 +76,4 @@ Holder status is detected through the existing wallet backend, the same one used
 - If the response reports a linked wallet holding $FRANC, the player is flagged as a **holder** and Competition + all difficulties unlock.
 - The result is cached in `localStorage` so the state survives reloads.
 
-> **Note:** the Supabase backend must allow **CORS** from `franclecoq.github.io` for detection to work from the game.
-
 🐓 *Cocorico!*
