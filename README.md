@@ -78,39 +78,4 @@ Holder status is detected through the existing wallet backend, the same one used
 
 > **Note:** the Supabase backend must allow **CORS** from `franclecoq.github.io` for detection to work from the game.
 
----
-
-## 🚀 Deployment
-
-1. Upload the `Sudoku/` folder to the repository served at `franclecoq.github.io/Sudoku`.
-   - The only required file is `index.html` (images are embedded).
-2. Make sure the wallet page is live at `franclecoq.github.io/Wallet/connect-wallet.html`.
-3. In **@BotFather**, register the game with `/newgame`, set the 640×360 preview image, and point the game URL to `https://franclecoq.github.io/Sudoku`.
-
----
-
-## 🛠️ Tech
-
-- Pure **HTML / CSS / vanilla JavaScript** — no build step, no framework.
-- Fonts: *Bangers* and *Fredoka One* (Google Fonts).
-- Telegram Web App SDK for Mini App integration.
-- A backtracking generator produces puzzles with a **unique solution** for every difficulty.
-
----
-
-## ⚙️ Tunable constants
-
-All near the top of the script in `index.html`:
-
-```js
-const COMP_LIVES = 3;     // lives in competition
-const HINT_COST  = 200;   // $FRANC per hint
-const GRID_REWARD = 600;  // $FRANC per grid won
-const MAX_HINTS  = 4;     // hints per grid
-const COUNT_COST = 400;   // $FRANC for the counter help
-// starting balance: 200 (set on first launch)
-```
-
----
-
 🐓 *Cocorico!*
