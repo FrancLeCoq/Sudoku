@@ -6,16 +6,6 @@ The whole game is a **single self-contained `index.html`** file — all images a
 
 ---
 
-## 🌐 Live URLs
-
-| | URL |
-|---|---|
-| Game (GitHub Pages) | `https://franclecoq.github.io/Sudoku` |
-| Launched from (Telegram) | `https://t.me/FrancisLeCoqBot/Sudoku` |
-| Wallet connection page | `https://franclecoq.github.io/Wallet/connect-wallet.html` |
-
----
-
 ## 🎮 Features
 
 ### Main menu
