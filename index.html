@@ -515,6 +515,7 @@ const LEVELS = [
 /* ---------- Holder state ---------- */
 let isHolder = JSON.parse(localStorage.getItem('flc_holder') || 'false');
 let francBalance = Number(localStorage.getItem('flc_balance') || 0);
+let unlockReason = localStorage.getItem('flc_reason') || null;  // "solana" | "ton" | "stars" | null
 
 /* ---------- Persistent competition $FRANC bank ----------
    Starts at 200 $FRANC once. Never goes below 0.
@@ -695,14 +696,21 @@ async function detectHolder(){
       });
       const d=await res.json();
       walletLinked = !!(d && d.walletLinked);
-      if(d && d.walletLinked && d.hasFranc){
-        isHolder=true; francBalance=Number(d.balance||0);
-      } else {
-        isHolder=false; francBalance=0;
-      }
+
+      // Verdict de déblocage : nouveau backend → d.unlocked,
+      // ancien backend → fallback hasFranc. Les deux marchent.
+      isHolder = !!(d && (d.unlocked ?? (d.walletLinked && d.hasFranc)));
+
+      // Raison du déblocage : "solana" | "ton" | "stars" | null
+      unlockReason = (d && d.reason) || (isHolder ? 'solana' : null);
+
+      // Solde réel (0 pour un déblocage via Stars)
+      francBalance = isHolder ? Number(d.balance || 0) : 0;
+
       localStorage.setItem('flc_holder',JSON.stringify(isHolder));
       localStorage.setItem('flc_balance',String(francBalance));
       localStorage.setItem('flc_walletLinked',JSON.stringify(walletLinked));
+      localStorage.setItem('flc_reason', unlockReason || '');
     }catch(e){/* keep cached value */}
   }
   renderCompLock(); renderWalletStatus(); renderLevelList();
@@ -716,11 +724,17 @@ function renderWalletStatus(){
   // color follows $FRANC state: green+open ONLY if holder, else orange+closed
   btn.classList.remove('btn-wallet','btn-comp-green','btn-comp-orange');
   if(isHolder){
-    const bal=francBalance?Number(francBalance).toLocaleString():'?';
-    sub.className='wallet-sub ok';
-    sub.textContent=`${t('wConnected')} · ${bal} $FRANC`;
     lock.textContent='🔓';
     btn.classList.add('btn-comp-green');
+    sub.className='wallet-sub ok';
+
+    if(unlockReason==='stars'){
+      sub.textContent='Unlocked via ⭐';
+    } else {
+      const sym = unlockReason==='ton' ? '💎' : '◎';   // 💎 TON · ◎ Solana
+      const bal = francBalance ? Number(francBalance).toLocaleString() : '?';
+      sub.textContent=`${t('wConnected')} ${sym} · ${bal} $FRANC`;
+    }
   } else if(walletLinked){
     sub.className='wallet-sub warn';
     sub.textContent=t('wNoFranc');
