@@ -90,7 +90,9 @@ body.playing #screenGame.card{
 }
 .menu-btn:active{transform:scale(0.97)}
 .menu-btn .ico{font-size:24px; line-height:1}
-.menu-btn .lock{position:absolute; right:14px; font-size:20px}
+.menu-btn .lock{position:absolute; right:14px; display:flex; align-items:center; justify-content:center}
+.menu-btn .lock svg{width:22px; height:22px; display:block}
+.lvl-btn .lk svg{width:20px; height:20px; display:block}
 #btnComp{padding-right:44px; font-size:21px}
 #btnWallet{padding-right:44px; padding-top:12px; padding-bottom:12px; font-size:18px}
 .wallet-text{display:flex; flex-direction:column; align-items:center; line-height:1.1}
@@ -330,13 +332,13 @@ body.locked-board #board, body.locked-board .pad, body.locked-board .pad-tools, 
 
     <button class="menu-btn btn-comp-orange" id="btnComp" onclick="openCompetition()">
       <span class="ico">🏆</span><span id="lblComp">COMPÉTITION</span>
-      <span class="lock" id="compLock">🔒</span>
+      <span class="lock" id="compLock"></span>
     </button>
 
     <button class="menu-btn btn-wallet" id="btnWallet" onclick="goConnectWallet()">
       <span class="ico">👛</span>
       <span class="wallet-text"><span id="lblWallet">CONNECT WALLET</span><span class="wallet-sub" id="walletSub"></span></span>
-      <span class="lock" id="walletLock">🔒</span>
+      <span class="lock" id="walletLock"></span>
     </button>
 
     <div class="lang-row">
@@ -724,7 +726,7 @@ function renderWalletStatus(){
   // color follows $FRANC state: green+open ONLY if holder, else orange+closed
   btn.classList.remove('btn-wallet','btn-comp-green','btn-comp-orange');
   if(isHolder){
-    lock.textContent='🔓';
+    lock.innerHTML=lockSvg(true);
     btn.classList.add('btn-comp-green');
     sub.className='wallet-sub ok';
 
@@ -738,14 +740,34 @@ function renderWalletStatus(){
   } else if(walletLinked){
     sub.className='wallet-sub warn';
     sub.textContent=t('wNoFranc');
-    lock.textContent='🔒';
+    lock.innerHTML=lockSvg(false);
     btn.classList.add('btn-comp-orange');
   } else {
     sub.className='wallet-sub warn';
     sub.textContent=t('wNotConnected');
-    lock.textContent='🔒';
+    lock.innerHTML=lockSvg(false);
     btn.classList.add('btn-comp-orange');
   }
+}
+
+/* ---------- Padlock SVG icons (clearer than emoji 🔓/🔒) ---------- */
+function lockSvg(open){
+  if(open){
+    // open padlock — shackle swung to the side
+    return `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="unlocked">
+      <path d="M7 10V7a5 5 0 0 1 9.6-2" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+      <rect x="4" y="10" width="14" height="10" rx="2.5" fill="#ffffff"/>
+      <circle cx="11" cy="14.5" r="1.6" fill="#15803d"/>
+      <rect x="10.2" y="14.5" width="1.6" height="3.2" rx="0.8" fill="#15803d"/>
+    </svg>`;
+  }
+  // closed padlock
+  return `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="locked">
+    <path d="M7.5 10V7a4.5 4.5 0 0 1 9 0v3" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+    <rect x="4.5" y="10" width="15" height="10" rx="2.5" fill="#ffffff"/>
+    <circle cx="12" cy="14.5" r="1.6" fill="#b45309"/>
+    <rect x="11.2" y="14.5" width="1.6" height="3.2" rx="0.8" fill="#b45309"/>
+  </svg>`;
 }
 
 function renderCompLock(){
@@ -753,10 +775,10 @@ function renderCompLock(){
   const lock=document.getElementById('compLock');
   if(isHolder){
     btn.classList.remove('btn-comp-orange'); btn.classList.add('btn-comp-green');
-    lock.textContent='🔓';
+    lock.innerHTML=lockSvg(true);
   } else {
     btn.classList.remove('btn-comp-green'); btn.classList.add('btn-comp-orange');
-    lock.textContent='🔒';
+    lock.innerHTML=lockSvg(false);
   }
 }
 
@@ -844,7 +866,7 @@ function renderLevelList(){
     const btn=document.createElement('button');
     btn.className='lvl-btn '+(unlocked?'unlocked':'lockedb');
     btn.innerHTML=`<span class="ll"><span class="stars">${lv.stars}</span> ${t('lvl')[i]}</span>
-      <span class="lk">${unlocked?'🔓':'🔒'}</span>`;
+      <span class="lk">${lockSvg(unlocked)}</span>`;
     btn.onclick=()=>{
       if(!unlocked){showLockModal('lvl');return;}
       G=freshGame('unique',i);
